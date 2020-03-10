@@ -19,7 +19,16 @@ obj_gt_paths = [
     '../infogain-manipulation/ycb/003_cracker_box/google_16k/textured.obj',
     '../infogain-manipulation/ycb/002_master_chef_can/google_16k/textured.obj',
 ]
-all_pcd_list = [] 
+
+
+def load_gt_meshes(gt_paths):
+    global all_pcd_list
+    for path in gt_paths:
+        all_pcd_list.append(o3d.io.read_triangle_mesh(path))
+
+all_pcd_list = []
+load_gt_meshes(obj_gt_paths)
+
 
 # Object parameters
 CURRENT_INDEX = 0
@@ -37,18 +46,22 @@ path = './data/ycb_data'
 scene_mesh = None
 
 
-def load_gt_meshes(gt_paths):
-    global all_pcd_list
-    for path in gt_paths:
-        all_pcd_list.append(o3d.io.read_triangle_mesh(path))
-
-
 # Load scene data
-def load_step_data(path, seq, step):
-    depth_image = np.load('{}/{}_{}_depth.npy'.format(path, seq, step))[0]
-    color_image = cv2.imread('{}/{}_{}_color_image.png'.format(path, seq, step))
-    cam_intr = np.load('./data/ycb_data/camera_intr.npy')
-    cam_pose = np.load('./data/ycb_data/camera_pose.npy')
+def load_step_data(path, seq, step, real_data=False):
+    if not real_data:
+        depth_image = np.load('{}/{}_{}_depth.npy'.format(path, seq, step))[0]
+        color_image = cv2.imread('{}/{}_{}_color_image.png'.format(path, seq, step))
+        cam_intr = np.load('./data/ycb_data/camera_intr.npy')
+        cam_pose = np.load('./data/ycb_data/camera_pose.npy')
+    else:
+        cam_intr = np.load('./real_data/camera_intr.npy')
+        cam_pose = np.loadtxt('./real_data/camera_pose.txt')
+        data_path = osp.join('./real_data/seq{}'.format(seq), 'data_{}.pkl'.format(step))
+        with open(data_path, 'rb') as f:
+            data = pickle.load(f)
+            depth_image = data['depth_init']
+            color_image = data['color_init']
+            print(data.keys())
 
     cam_pts, rgb_pts = get_pointcloud(color_image, depth_image, cam_intr)
 
@@ -89,15 +102,28 @@ def draw_geometry_with_key_callback(pcd_list):
         translation = c3D.makeTranslation4x4(np.asarray([0., -offset, 0.]))
         pcd_list[CURRENT_INDEX].transform(translation)
         vis.update_geometry(pcd_list[CURRENT_INDEX])
-        all_transformations[CURRENT_INDEX][0:3, 3] = translation[0:3, 3] + all_transformations[CURRENT_INDEX][0:3, 3]
+        all_transformations[CURRENT_INDEX][0:3, 3] = translation[0:3,  3] + all_transformations[CURRENT_INDEX][0:3, 3]
 
     def translate_y_pos(vis):
         global CURRENT_INDEX, offset
         translation = c3D.makeTranslation4x4(np.asarray([0., offset, 0.]))
         pcd_list[CURRENT_INDEX].transform(translation)
         vis.update_geometry(pcd_list[CURRENT_INDEX])
-        rotated_translation = np.dot(all_transformations[CURRENT_INDEX][0:3, 0:3], translation[0:3, 3])
-        all_transformations[CURRENT_INDEX][0:3, 3] = rotated_translation + all_transformations[CURRENT_INDEX][0:3, 3]
+        all_transformations[CURRENT_INDEX][0:3, 3] = translation[0:3, 3] + all_transformations[CURRENT_INDEX][0:3, 3]
+    
+    def translate_z_pos(vis):
+        global CURRENT_INDEX, offset
+        translation = c3D.makeTranslation4x4(np.asarray([0., 0., offset]))
+        pcd_list[CURRENT_INDEX].transform(translation)
+        vis.update_geometry(pcd_list[CURRENT_INDEX])
+        all_transformations[CURRENT_INDEX][0:3, 3] = translation[0:3, 3] + all_transformations[CURRENT_INDEX][0:3, 3]
+
+    def translate_z_neg(vis):
+        global CURRENT_INDEX, offset
+        translation = c3D.makeTranslation4x4(np.asarray([0., 0., -offset]))
+        pcd_list[CURRENT_INDEX].transform(translation)
+        vis.update_geometry(pcd_list[CURRENT_INDEX])
+        all_transformations[CURRENT_INDEX][0:3, 3] = translation[0:3, 3] + all_transformations[CURRENT_INDEX][0:3, 3]
 
     def rotate_1(vis):
         global CURRENT_INDEX, rot_step
@@ -135,7 +161,7 @@ def draw_geometry_with_key_callback(pcd_list):
         if step > 0:
             vis.remove_geometry(scene_mesh)
 
-        cam_pts, rgb_pts = load_step_data(path, seq, step)
+        cam_pts, rgb_pts = load_step_data(path, seq, step, real_data=True)
         scene_mesh = o3d.geometry.PointCloud()
 
         rgb_pts = rgb_pts / 255.
@@ -155,6 +181,8 @@ def draw_geometry_with_key_callback(pcd_list):
     key_to_callback[ord("S")] = translate_y_neg
     key_to_callback[ord("A")] = translate_x_neg
     key_to_callback[ord("D")] = translate_x_pos
+    key_to_callback[ord("T")] = translate_z_pos
+    key_to_callback[ord("G")] = translate_z_neg
     key_to_callback[ord("1")] = rotate_1
     key_to_callback[ord("2")] = rotate_2
     key_to_callback[ord("3")] = rotate_3
@@ -179,5 +207,4 @@ def read_transform(transform_path):
 if __name__ == "__main__":
     print(sys.argv)
     seq = int(sys.argv[1])
-    load_gt_meshes(obj_gt_paths)
     draw_geometry_with_key_callback(all_pcd_list)
