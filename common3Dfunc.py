@@ -65,3 +65,34 @@ def load_transformation( name ):
     trans_in = np.array(json_data["transformation4x4"][0])
 
     return trans_in
+
+
+def RPY2Matrix4x4( roll, pitch, yaw ):
+
+    rot = np.identity(4)
+    if roll< -3.141:
+        roll += 6.282
+    elif 3.141 < roll:
+        roll -= 6.282
+    if pitch < -3.141:
+        pitch += 6.282
+    elif 3.141 < pitch:
+        pitch -= 6.282
+    if yaw < -3.141: 
+        yaw += 6.282
+    elif 3.141 < yaw:
+        yaw -= 6.282
+    
+    rot[ 0, 0 ] = cos(yaw)*cos(pitch)
+    rot[ 0, 1 ] = -sin(yaw)*cos(roll) + (cos(yaw)*sin(pitch)*sin(roll))
+    rot[ 0, 2 ] = sin(yaw)*sin(roll) + (cos(yaw)*sin(pitch)*cos(roll))
+    rot[ 1, 0 ] = sin(yaw)*cos(pitch)
+    rot[ 1, 1 ] = cos(yaw)*cos(roll) + (sin(yaw)*sin(pitch)*sin(roll))
+    rot[ 1, 2 ] = -cos(yaw)*sin(roll) + (sin(yaw)*sin(pitch)*cos(roll))
+    rot[ 2, 0 ] = -sin(pitch)
+    rot[ 2, 1 ] = cos(pitch)*sin(roll)
+    rot[ 2, 2 ] = cos(pitch)*cos(roll)
+    rot[ 3, 0 ] = rot[ 3, 1 ] = rot[ 3, 2 ] = 0.0
+    rot[ 3, 3 ] = 1.0
+
+    return rot

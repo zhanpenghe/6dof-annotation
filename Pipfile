@@ -7,6 +7,12 @@ verify_ssl = true
 
 [packages]
 opencv-python = "*"
+open3d = "*"
+scikit-learn = "*"
+matplotlib = "*"
+imageio = "*"
+dominate = "*"
+scikit-image = "*"
 
 [requires]
 python_version = "3.6"
